@@ -1,9 +1,9 @@
 package br.com.fiap.shiftweb6.controller;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,57 +16,77 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import br.com.fiap.shitweb06.model.UsuarioModel;
+import br.com.fiap.shiftweb6.model.UsuarioModel;
+import br.com.fiap.shiftweb6.repository.UsuarioRepository;
 
 @RestController
 @RequestMapping("/usuario")
 public class UsuarioController {
 	
+	@Autowired
+	UsuarioRepository usuarioRepository;
+	//UsuarioRepository usuarioRepository = new UsuarioRepository();
+	
 	//findAll
 	@GetMapping
 	public ResponseEntity<List<UsuarioModel>> findAll() {
-		List<UsuarioModel> lista = new ArrayList<>();
-		lista.add(new UsuarioModel("191", "giuliano1@gmail.com.br"));
-		lista.add(new UsuarioModel("192", "giuliano2@gmail.com.br"));
-		lista.add(new UsuarioModel("193", "giuliano3@gmail.com.br"));
-		return ResponseEntity.ok(lista);		
+		List<UsuarioModel> lista = usuarioRepository.findAll();
+		return ResponseEntity.ok(lista);
 	}
 	
 	//findById - O void não retorna nada
 	@GetMapping("/{id}")
 	public ResponseEntity<UsuarioModel> findById(@PathVariable("id") Long id) {
+		UsuarioModel usuarioModel = usuarioRepository.findById(id).orElse(null);
 		
-		if( id == 1) {
-			UsuarioModel usuarioModel = new UsuarioModel("191", "giuliano1@gmail.com.br");
+		if ( usuarioModel != null  ) {
 			return ResponseEntity.ok(usuarioModel);
 		} else {
 			return ResponseEntity.notFound().build();
 		}
 	}
+	
 	@GetMapping("/{email}/{senha}")
-    public ResponseEntity<UsuarioModel> findByEmailAndSenha(
-        @PathVariable("email")  String paramEmail, 
-        @PathVariable("senha")  String paramSenha) {
-        System.out.println( paramEmail + paramSenha );
-        UsuarioModel usuarioModel = new UsuarioModel("191", "giuliano1@gmail.com.br");
-        return ResponseEntity.ok(usuarioModel);
-    }
+	public ResponseEntity<UsuarioModel> findByEmailAndSenha(
+		@PathVariable("email")	String email, 
+		@PathVariable("senha")	String senha) {
+		
+		System.out.println( email + senha );
+		
+		return loginUsuario(email, senha);
+		
+		//return ResponseEntity.ok(usuarioModel);
+	}
+	
 	@GetMapping("/login")
-    public ResponseEntity<UsuarioModel> login(
-        @RequestParam   String email, 
-        @RequestParam   String senha) {
-        System.out.println( email + senha);
-        UsuarioModel usuarioModel = new UsuarioModel("191", "fmoreni1@gmail.com.br");
-        return ResponseEntity.ok(usuarioModel);
-    }
+	public ResponseEntity<UsuarioModel> login(
+		@RequestParam	String email, 
+		@RequestParam	String senha) {
+		
+		System.out.println( email + senha);
+		
+		return loginUsuario(email, senha);
+	}
+
+	private ResponseEntity<UsuarioModel> loginUsuario(String email, String senha) {
+		UsuarioModel usuarioModel = usuarioRepository.findByEmailAndSenha(email, senha);
+		
+		if ( usuarioModel != null) {
+			return ResponseEntity.ok(usuarioModel);
+		} else {
+			return ResponseEntity.notFound().build();
+		}
+	}
+	
 	//post -- Criar
+	
 	@PostMapping
 	public ResponseEntity post(@RequestBody UsuarioModel usuarioModel) {
 		System.out.println(usuarioModel);
 		
-		if ( null != usuarioModel.getIdade()) {
-			// Esse trecho será alterado por uma chamada no banco de dados.
-			usuarioModel.setIdUsuario(999L);
+		if ( null != usuarioModel.getIdade() ) {
+			
+			usuarioRepository.save(usuarioModel);
 			
 			URI location = ServletUriComponentsBuilder
 					.fromCurrentRequest()
@@ -75,34 +95,49 @@ public class UsuarioController {
 			
 			return ResponseEntity.created(location).build();
 			
+			
 		} else {
 			return ResponseEntity.badRequest().body("Idade não informada");
 		}
+		
 	}
+	
 	//put -- Alterar
 	@PutMapping("/{id}")
-	public ResponseEntity put(@PathVariable("id") Long id, @RequestBody UsuarioModel usuarioModel) {
+	public ResponseEntity put(@PathVariable("id") Long id,  @RequestBody UsuarioModel usuarioModel) {
 		System.out.println(usuarioModel);
-		if (id != 1) {
-			return ResponseEntity.notFound().build();
-		} else if (( null == id) || ( null == usuarioModel.getIdUsuario())) {
+		
+		if ( (null == id) || ( null == usuarioModel.getIdUsuario() ) ) {
 			return ResponseEntity.badRequest().body("id não informado");
-		} else if (id != usuarioModel.getIdUsuario() ) {
+			
+		} else if ( id != usuarioModel.getIdUsuario() ) {
 			return ResponseEntity.badRequest().body("id errado");
-		} else if (null == usuarioModel.getIdade()) {
+			
+		} else if ( null == usuarioModel.getIdade() ) {
 			return ResponseEntity.badRequest().body("idade não informada");
+			
+		} else if ( ! usuarioRepository.existsById(id) ) {
+			return ResponseEntity.notFound().build();
+			
 		} else {
+			usuarioModel.setIdUsuario(id);
+			usuarioRepository.save(usuarioModel);
 			return ResponseEntity.noContent().build();
 		}
+		
 	}
+	
 	//Delete
 	@DeleteMapping("/{id}")
 	public ResponseEntity delete(@PathVariable("id") Long id) {
-		if (id != 1) {
-			return ResponseEntity.notFound().build();
-		} else {
+		
+		if ( usuarioRepository.existsById(id) ) {
+			usuarioRepository.deleteById(id);
 			return ResponseEntity.noContent().build();
+		} else {
+			return ResponseEntity.notFound().build();
 		}
+		
 	}
 
 }
